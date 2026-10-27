@@ -23,6 +23,7 @@ struct ContentView: View {
         Map(position: $cameraPosition, selection: $mapSelection){
 
             UserAnnotation()
+            // UserAnnotaion() findes i UI
             /*
              Marker("Erhvervsakademi Århus",
              coordinate: CLLocationCoordinate2D(latitude: 56.119657, longitude: 10.158651)
