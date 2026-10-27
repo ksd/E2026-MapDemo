@@ -6,10 +6,13 @@
 
 import SwiftUI
 import MapKit
+import CoreLocationUI
 
 struct ContentView: View {
+    @State private var userLocation: CLLocation?
+
     @State private var cameraPosition: MapCameraPosition = .eaaa
-    @State private var mapSelection: String?
+    @State private var mapSelection: MapElement?
     @State private var route: MKRoute?
     @State private var travelTime: String?
     @State private var showDetails = false
@@ -19,14 +22,17 @@ struct ContentView: View {
     var body: some View {
         Map(position: $cameraPosition, selection: $mapSelection){
 
-            Marker("Erhvervsakademi Århus",
-                   coordinate: CLLocationCoordinate2D(latitude: 56.119657, longitude: 10.158651)
-            ).tag("1")
+            UserAnnotation()
+            /*
+             Marker("Erhvervsakademi Århus",
+             coordinate: CLLocationCoordinate2D(latitude: 56.119657, longitude: 10.158651)
+             ).tag(MapElement.Marker(item: "1"))
 
-            Marker(
-                "Kajs kontor",
-                coordinate: CLLocationCoordinate2D(latitude: 52.51874, longitude: 13.40802)
-            ).tag("2")
+             Marker(
+             "Kajs kontor",
+             coordinate: CLLocationCoordinate2D(latitude: 52.51874, longitude: 13.40802)
+             ).tag(MapElement.Marker(item: "2"))
+             */
 
             ForEach(controller.users) { user in
                 Annotation(user.fullname,
@@ -44,7 +50,7 @@ struct ContentView: View {
                         Color.green
                     }
                 }
-                           .tag(user.id)
+                           .tag(MapElement.Annotation(item: user.id))
             }
 
             if let route {
@@ -52,11 +58,22 @@ struct ContentView: View {
                     .stroke(.blue, lineWidth: 5)
             }
         }
-
+        
+        .overlay(alignment: .top) {
+            LocationButton(.currentLocation) {
+                Task { await fetchLocation() }
+            }
+            .symbolVariant(.fill)
+            .labelStyle(.titleAndIcon)
+            .foregroundStyle(.white)
+            .tint(.blue)
+            .clipShape(Capsule())
+            .padding(.top,32)
+        }
         .onChange(of: mapSelection) { oldValue, newValue in
-          //  if newValue != nil && newValue != "1" {
-                showDetails.toggle()
-          //  }
+            //  if newValue != nil && newValue != "1" {
+            showDetails.toggle()
+            //  }
         }
 
         .sheet(isPresented: $showDetails) {
@@ -71,17 +88,36 @@ struct ContentView: View {
                 .padding(.vertical, 12)
                 .background(.blue.gradient, in: .rect(cornerRadius: 15))
                 .padding()
-                if let userID = mapSelection {
-                    let user = controller.users.first { user in
-                        user.id == userID
-                    }
-                    if let user {
-                        Text(user.fullname)
-                    }
-                }
+                /*
+                 if let userID = mapSelection {
+                 let user = controller.users.first { user in
+                 user.id == userID
+                 }
+                 if let user {
+                 Text(user.fullname)
+                 }
+                 }
+                 */
             }
             .presentationDetents([.height(200)])
             //.interactiveDismissDisabled(true)
+        }
+    }
+
+    private func fetchLocation() async {
+        withAnimation {
+            cameraPosition = .userLocation(fallback: .automatic)
+        }
+        do {
+            for try await update in CLLocationUpdate.liveUpdates() {
+
+                if let location = update.location {
+                    userLocation = location
+                    break
+                }
+            }
+        } catch {
+            fatalError("Ingen location")
         }
     }
 
@@ -121,6 +157,19 @@ struct ContentView: View {
 }
 
 
+
+
+
+
+
+
+
+
+enum MapElement: Hashable {
+    case Marker(item: String)
+    case Annotation(item: String)
+    case Me(item: String)
+}
 
 
 extension MapCameraPosition {
